@@ -5,8 +5,8 @@ let call;
 let callAgent;
 const callButton = document.getElementById("call-button");
 const hangUpButton = document.getElementById("hang-up-button");
+const nextButton = document.getElementById("next-button");
 
-let placeCallOptions;
 let deviceManager;
 let localVideoStream;
 let rendererLocal;
@@ -114,23 +114,47 @@ async function remoteVideoView(remoteVideoStream) {
 }
 
 callButton.addEventListener("click", async () => {
+  await callUser(callee);
+});
+
+nextButton.addEventListener("click", async () => {
+  await hangUp();
+  
+  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/next');
+  
+  if (response.ok) { // if HTTP-status is 200-299
+    // get the response body (the method explained below)
+    let json = await response.json();
+    callee = json.callee;
+    console.log(json);
+  } else {
+    console.log(response.status + ": " + response.statusText);
+  }
+
+  await callUser(callee);
+
+});
+
+hangUpButton.addEventListener("click", async () => {
+  // dispose of video renderers
+  await hangUp();
+});
+
+async function callUser(userToCall) {
   const videoDevices = await deviceManager.getCameras();
   const videoDeviceInfo = videoDevices[0];
   localVideoStream = new LocalVideoStream(videoDeviceInfo);
-  placeCallOptions = { videoOptions: { localVideoStreams: [localVideoStream] } };
 
   localVideoView();
-  if(callee === null || callee === undefined)
-  {
+  if (userToCall === null || userToCall === undefined) {
     console.log("waiting to be called");
   }
-  else
-  {
-    console.log("callee: " + callee);
-    const userToCall = callee;
+
+  else {
+    console.log("callee: " + userToCall);
     call = callAgent.startCall(
       [{ communicationUserId: userToCall }],
-      placeCallOptions
+      { videoOptions: { localVideoStreams: [localVideoStream] } }
     );
 
     subscribeToRemoteParticipantInCall(call);
@@ -138,11 +162,9 @@ callButton.addEventListener("click", async () => {
     hangUpButton.disabled = false;
     callButton.disabled = true;
   }
-});
+}
 
-
-hangUpButton.addEventListener("click", async () => {
-  // dispose of video renderers
+async function hangUp() {
   rendererLocal.dispose();
   rendererRemote.dispose();
   // end the current call
@@ -150,4 +172,5 @@ hangUpButton.addEventListener("click", async () => {
   // toggle button states
   hangUpButton.disabled = true;
   callButton.disabled = false;
-});
+}
+
