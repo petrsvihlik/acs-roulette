@@ -1,9 +1,7 @@
 import express from "express";
 import PriorityQueue from "ts-priority-queue";
 import {
-  CommunicationAccessToken,
   CommunicationIdentityClient,
-  CommunicationUserToken,
 } from "@azure/communication-identity";
 import dotenv from "dotenv";
 
@@ -12,17 +10,15 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 8080; // default port to listen
 
-const connectionString =
-  process.env.COMMUNICATION_SERVICES_CONNECTION_STRING;
+const connectionString = process.env.COMMUNICATION_SERVICES_CONNECTION_STRING;
 
 declare interface PriorityItem {
   priority: number;
-  user: CommunicationUserToken;
+  userId: string;
 }
 
 declare interface StartResponse {
   status: string;
-  user?: CommunicationUserToken;
   callee?: string;
 }
 
@@ -33,7 +29,7 @@ if (connectionString === undefined) {
 
 const identityClient = new CommunicationIdentityClient(connectionString);
 const queue = new PriorityQueue({
-  comparator (a: PriorityItem, b: PriorityItem) {
+  comparator(a: PriorityItem, b: PriorityItem) {
     return b.priority - a.priority;
   },
 });
@@ -46,30 +42,17 @@ app.get("/", (req, res) => {
   res.send(response);
 });
 
-app.get("/start", async (req, res) => {
-  const identityTokenResponse = await identityClient.createUserAndToken(["voip"]);
-
-  if (queue.length === 0) {
-    queue.queue({ priority: 2, user: identityTokenResponse });
-    const response: StartResponse = {
-      status: "waiting",
-      user: identityTokenResponse,
-    };
-    res.send(response);
-  } else {
-    const item: PriorityItem = queue.dequeue();
-    const response: StartResponse = {
-      status: "ready",
-      user: identityTokenResponse,
-      callee: item.user.user.communicationUserId,
-    };
-    res.send(response);
-  }
+app.get("/init", async (req, res) => {
+  const identityTokenResponse = await identityClient.createUserAndToken([
+    "voip",
+  ]);
+  res.send(identityTokenResponse);
 });
 
-
 app.get("/next", async (req, res) => {
-  const userId: string = req.headers.userId as string;
+  const userId: string = req.header('userId') as string;
+  //const priority: number = req.headers.priority as number;
+
   if (userId === undefined) {
     res.status(500).send({ error: "The 'userId' header must be set!" });
     return;
@@ -81,20 +64,22 @@ app.get("/next", async (req, res) => {
 
   if (queue.length > 0) {
     let item: PriorityItem = queue.peek();
-    if (item.user.user.communicationUserId !== userId) {
+    if (item.userId !== userId) {
       item = queue.dequeue();
 
       response = {
         status: "ready",
-        callee: item.user.user.communicationUserId,
+        callee: item.userId,
       };
     }
+  } else {
+    queue.queue({ priority: 2, userId: userId });
   }
   res.send(response);
 });
 
 app.get("/stop", async (req, res) => {
-  const userId: string = req.headers.userId as string;
+  const userId: string = req.header('userId') as string;
   if (userId === undefined) {
     res.status(500).send({ error: "The 'userId' header must be set!" });
     return;

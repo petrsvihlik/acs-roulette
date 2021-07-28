@@ -48,23 +48,21 @@ function subscribeToRemoteParticipantInCall(callInstance) {
 }
 
 let userId = null;
-let callee = null;
 
 async function init() {
 
-  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/start');
+  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/init');
   let token = null;
   if (response.ok) { // if HTTP-status is 200-299
     // get the response body (the method explained below)
     let json = await response.json();
-    token = json.user.token;
-    userId = json.user.user.communicationUserId;
-    callee = json.callee;
+    token = json.token;
+    userId = json.user.communicationUserId;
     console.log(json);
+    console.log("userId: " + userId);
   } else {
     console.log(response.status + ": " + response.statusText);
   }
-
 
   const callClient = new CallClient();
   const tokenCredential = new AzureCommunicationTokenCredential(token);
@@ -114,24 +112,41 @@ async function remoteVideoView(remoteVideoStream) {
 }
 
 callButton.addEventListener("click", async () => {
-  await callUser(callee);
-});
-
-nextButton.addEventListener("click", async () => {
-  await hangUp();
   
-  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/next');
-  
-  if (response.ok) { // if HTTP-status is 200-299
-    // get the response body (the method explained below)
+  // Get callee
+  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/next', { headers: { 'userId': userId } });
+  let callee = null;
+  if (response.ok) { 
     let json = await response.json();
-    callee = json.callee;
     console.log(json);
+    callee = json.callee;
   } else {
     console.log(response.status + ": " + response.statusText);
   }
 
   await callUser(callee);
+});
+
+nextButton.addEventListener("click", async () => {
+  await hangUp();
+
+  // Get callee
+  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/next', { headers: { 'userId': userId } });
+  let callee = null;
+  if (response.ok) { 
+    let json = await response.json();
+    console.log(json);
+    callee = json.callee;
+  } else {
+    console.log(response.status + ": " + response.statusText);
+  }
+
+  if (callee != null && callee != undefined) {
+    await callUser(callee);
+  }
+  else {
+    console.log("waiting to be connected");
+  }
 
 });
 
@@ -139,6 +154,7 @@ hangUpButton.addEventListener("click", async () => {
   // dispose of video renderers
   await hangUp();
 });
+
 
 async function callUser(userToCall) {
   const videoDevices = await deviceManager.getCameras();
