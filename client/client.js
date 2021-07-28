@@ -79,6 +79,7 @@ async function init() {
 
     callButton.disabled = true;
     hangUpButton.disabled = false;
+    nextButton.disabled = false;
 
     const addedCall = await e.incomingCall.accept({ videoOptions: { localVideoStreams: [localVideoStream] } });
     call = addedCall;
@@ -87,28 +88,42 @@ async function init() {
   });
 
   callAgent.on('callsUpdated', e => {
+    console.log("callsUpdated");
+    console.log(e);
     e.removed.forEach(removedCall => {
-      // dispose of video renderers
+      // dispose of video renderers      
       rendererLocal.dispose();
       rendererRemote.dispose();
       // toggle button states
       hangUpButton.disabled = true;
+      nextButton.disabled = true;
       callButton.disabled = false;
+      console.log("call has been terminated");
     })
   })
 }
 init();
 
+function removeAllChildNodes(parent) {
+  while (parent.firstChild) {
+      parent.removeChild(parent.firstChild);
+  }
+}
+
 async function localVideoView() {
   rendererLocal = new VideoStreamRenderer(localVideoStream);
   const view = await rendererLocal.createView();
-  document.getElementById("myVideo").appendChild(view.target);
+  const myVideoElement = document.getElementById("myVideo");
+  removeAllChildNodes(myVideoElement);
+  myVideoElement.appendChild(view.target);
 }
 
 async function remoteVideoView(remoteVideoStream) {
   rendererRemote = new VideoStreamRenderer(remoteVideoStream);
   const view = await rendererRemote.createView();
-  document.getElementById("remoteVideo").appendChild(view.target);
+  const remoteVideoElement = document.getElementById("remoteVideo");
+  removeAllChildNodes(remoteVideoElement);
+  remoteVideoElement.appendChild(view.target);
 }
 
 callButton.addEventListener("click", async () => {
@@ -176,13 +191,12 @@ async function callUser(userToCall) {
     subscribeToRemoteParticipantInCall(call);
 
     hangUpButton.disabled = false;
+    nextButton.disabled = false;
     callButton.disabled = true;
   }
 }
 
 async function hangUp() {
-  rendererLocal.dispose();
-  rendererRemote.dispose();
   // end the current call
   await call.hangUp();
   // toggle button states
