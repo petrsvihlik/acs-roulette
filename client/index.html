@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ACS Roulette</title>
+  </head>
+
+  <body>
+    <h1>ACS Roulette</h1>
+
+    <div>
+      <button id="call-button" type="button" disabled="true">
+        Join roulette 📞
+      </button>
+      &nbsp;
+      <button id="hang-up-button" type="button" disabled="true">
+        Leave roulette 🚪
+      </button> 
+      &nbsp;
+      <button id="next-button" type="button" disabled="true">
+        NEXT 🎲 >>
+      </button>  
+    </div>
+
+    <div>Local Video</div>
+    <div style="height:200px; width:300px; background-color:black; position:relative;">
+      <div id="myVideo" style="background-color: black; position:absolute; top:50%; transform: translateY(-50%);">
+      </div>
+    </div>
+    <div>Remote Video</div>
+    <div style="height:200px; width:300px; background-color:black; position:relative;"> 
+      <div id="remoteVideo" style="background-color: black; position:absolute; top:50%; transform: translateY(-50%);">
+      </div>
+    </div>
+
+    <script src="./bundle.js"></script>
+  </body>
+</html>
