@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/952f0a93-f4cf-446d-9206-fd5c76d96fbf/resourceGroups/appsvc_linux_centralus_basic/providers/Microsoft.Web/sites/petr-acs-roulette-server",
+    "appService.deploySubpath": "."
+}
