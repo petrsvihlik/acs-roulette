@@ -78,7 +78,7 @@ app.get("/next", async (req, res) => {
   res.send(response);
 });
 
-app.get("/stop", async (req, res) => {
+app.post("/stop", async (req, res) => {
   const userId: string = req.header('userId') as string;
   if (userId === undefined) {
     res.status(500).send({ error: "The 'userId' header must be set!" });

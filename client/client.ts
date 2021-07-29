@@ -3,26 +3,21 @@ import {
   CallAgent,
   VideoStreamRenderer,
   LocalVideoStream,
-  IncomingCall,
   Call,
   DeviceManager,
   RemoteVideoStream,
   RemoteParticipant,
 } from "@azure/communication-calling";
 import { AzureCommunicationTokenCredential } from "@azure/communication-common";
+import { CallStatus } from "./CallStatus";
+
 
 let call: Call;
 let callAgent: CallAgent;
 
+let timeout: number = 120;
 let userId: string | null = null;
 let iTerminated: boolean = false;
-
-enum CallStatus
-{
-  Disconnected,
-  Waiting,
-  Connected
-}
 
 const callButton = document.getElementById("call-button") as HTMLButtonElement;
 const hangUpButton = document.getElementById(
@@ -63,8 +58,7 @@ function subscribeToParticipantVideoStreams(
   });
 }
 
-function subscribeToRemoteParticipantInCall(callInstance: Call) {
-  waitingLabel.style.visibility = "hidden";
+function subscribeToRemoteParticipantInCall(callInstance: Call) {  
   callInstance.on("remoteParticipantsUpdated", (e) => {
     e.added.forEach((p) => {
       subscribeToParticipantVideoStreams(p);
@@ -177,6 +171,15 @@ async function remoteVideoView(remoteVideoStream: RemoteVideoStream) {
 window.addEventListener("beforeunload", async function (e) {
   delete e["returnValue"];
   await hangUp();
+
+  const requestHeaders: HeadersInit = new Headers();
+  if (userId != null) {
+    requestHeaders.set("userId", userId);
+  }
+  await fetch("https://petr-acs-roulette-server.azurewebsites.net/stop", {
+    headers: requestHeaders,
+    method: "POST",
+  });
 });
 
 callButton.addEventListener("click", async () => {
@@ -264,6 +267,8 @@ function setUI(status: CallStatus) {
       callButton.disabled = false;
       nextButton.disabled = true;
       waitingLabel.style.visibility = "hidden";
+      nextButton.innerHTML = "NEXT 🎲 >>";
+      clearTimeout(timeoutObj);
       break;
 
     case CallStatus.Connected:
@@ -271,6 +276,7 @@ function setUI(status: CallStatus) {
       callButton.disabled = true;
       nextButton.disabled = false;
       waitingLabel.style.visibility = "hidden";
+      initCountdown(nextButton, timeout);
       break;
 
     case CallStatus.Waiting:
@@ -278,6 +284,33 @@ function setUI(status: CallStatus) {
       callButton.disabled = true;
       nextButton.disabled = true;
       waitingLabel.style.visibility = "visible";
+      nextButton.innerHTML = "NEXT 🎲 >>";
+      clearTimeout(timeoutObj);
       break;
   }
+}
+
+let timeoutObj: NodeJS.Timeout;
+function initCountdown(element: HTMLButtonElement, seconds: number) {
+  var endTime: number, mins, msLeft, time;
+
+  function twoDigits(n: number) {
+    return n <= 9 ? "0" + n : n;
+  }
+
+  function updateTimer() {
+    msLeft = endTime - +new Date();
+    if (msLeft < 1000) {
+      nextButton.click();
+    } else {
+      time = new Date(msLeft);
+      mins = time.getUTCMinutes();
+      element.innerHTML =
+        "NEXT 🎲 >> " + mins + ":" + twoDigits(time.getUTCSeconds());
+      timeoutObj = setTimeout(updateTimer, time.getUTCMilliseconds() + 500);
+    }
+  }
+
+  endTime = +new Date() + 1000 * seconds + 500;
+  updateTimer();
 }
