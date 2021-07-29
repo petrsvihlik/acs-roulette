@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack serve",
-    "build": "cpx --clean ./*.* dist & webpack  --mode production"
+    "build": "cpx --clean ./*.{html,ico} dist  & webpack  --mode production"
   },
   "keywords": [],
   "author": "",
