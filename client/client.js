@@ -17,6 +17,7 @@ function handleVideoStream(remoteVideoStream) {
     if (remoteVideoStream.isAvailable) {
       remoteVideoView(remoteVideoStream);
     } else {
+      console.log("disposing handleVideoStream");
       rendererRemote.dispose();
     }
   });
@@ -90,15 +91,29 @@ async function init() {
   callAgent.on('callsUpdated', e => {
     console.log("callsUpdated");
     console.log(e);
-    e.removed.forEach(removedCall => {
-      // dispose of video renderers      
+    ///window.ttt = e;
+    e.removed.forEach(async removedCall => {
+      // dispose of video renderers
+      console.log("disposing onCallsUpdated");
       rendererLocal.dispose();
-      rendererRemote.dispose();
+      //rendererRemote.dispose();
       // toggle button states
       hangUpButton.disabled = true;
       nextButton.disabled = true;
       callButton.disabled = false;
       console.log("call has been terminated");
+      console.log("callerMri: " + e.removed[0].tsCall.callerMri + " userId: " + userId);
+      if (e.removed[0].tsCall.callerMri !== userId) {
+        // call was terminated by the other side
+        // Get callee
+        let callee = await getNextCallee();
+
+        await callUser(callee);
+
+        hangUpButton.disabled = false;
+        nextButton.disabled = false;
+        callButton.disabled = true;
+      }
     })
   })
 }
@@ -106,7 +121,7 @@ init();
 
 function removeAllChildNodes(parent) {
   while (parent.firstChild) {
-      parent.removeChild(parent.firstChild);
+    parent.removeChild(parent.firstChild);
   }
 }
 
@@ -127,61 +142,60 @@ async function remoteVideoView(remoteVideoStream) {
 }
 
 callButton.addEventListener("click", async () => {
-  
-  // Get callee
-  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/next', { headers: { 'userId': userId } });
-  let callee = null;
-  if (response.ok) { 
-    let json = await response.json();
-    console.log(json);
-    callee = json.callee;
-  } else {
-    console.log(response.status + ": " + response.statusText);
-  }
+
+  let callee = await getNextCallee();
 
   await callUser(callee);
+
+  hangUpButton.disabled = false;
+  nextButton.disabled = false;
+  callButton.disabled = true;
 });
 
 nextButton.addEventListener("click", async () => {
   await hangUp();
 
   // Get callee
-  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/next', { headers: { 'userId': userId } });
-  let callee = null;
-  if (response.ok) { 
-    let json = await response.json();
-    console.log(json);
-    callee = json.callee;
-  } else {
-    console.log(response.status + ": " + response.statusText);
-  }
+  let callee = await getNextCallee();
 
-  if (callee != null && callee != undefined) {
-    await callUser(callee);
-  }
-  else {
-    console.log("waiting to be connected");
-  }
-
+  await callUser(callee);
 });
 
 hangUpButton.addEventListener("click", async () => {
   // dispose of video renderers
   await hangUp();
+
+  // toggle button states
+  hangUpButton.disabled = true;
+  callButton.disabled = false;
+  nextButton.disabled = true;
 });
 
 
-async function callUser(userToCall) {
-  const videoDevices = await deviceManager.getCameras();
-  const videoDeviceInfo = videoDevices[0];
-  localVideoStream = new LocalVideoStream(videoDeviceInfo);
+async function getNextCallee() {
+  // Get callee
+  let response = await fetch('https://petr-acs-roulette-server.azurewebsites.net/next', { headers: { 'userId': userId } });
 
-  localVideoView();
+  if (response.ok) {
+    let json = await response.json();
+    console.log("getNextCallee:");
+    console.log(json);
+    return json.callee;
+  } else {
+    console.log(response.status + ": " + response.statusText);
+  }
+}
+
+async function callUser(userToCall) {
   if (userToCall === null || userToCall === undefined) {
     console.log("waiting to be called");
   }
-
   else {
+    const videoDevices = await deviceManager.getCameras();
+    const videoDeviceInfo = videoDevices[0];
+    localVideoStream = new LocalVideoStream(videoDeviceInfo);
+
+    localVideoView();
     console.log("callee: " + userToCall);
     call = callAgent.startCall(
       [{ communicationUserId: userToCall }],
@@ -189,18 +203,11 @@ async function callUser(userToCall) {
     );
 
     subscribeToRemoteParticipantInCall(call);
-
-    hangUpButton.disabled = false;
-    nextButton.disabled = false;
-    callButton.disabled = true;
   }
 }
 
 async function hangUp() {
   // end the current call
   await call.hangUp();
-  // toggle button states
-  hangUpButton.disabled = true;
-  callButton.disabled = false;
 }
 
