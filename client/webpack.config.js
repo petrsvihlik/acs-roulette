@@ -1,3 +1,5 @@
+const Dotenv = require('dotenv-webpack');
+
 module.exports = {
   entry: './client.ts',
   devtool: 'inline-source-map',
@@ -12,8 +14,13 @@ module.exports = {
     ]
   },
   resolve: {
-    extensions: [ '.tsx', '.ts', '.js' ]
+    extensions: [ '.tsx', '.ts', '.js' ],
+    fallback: {
+    }
   },
+  plugins: [
+    new Dotenv()
+  ],
   output: {
     filename: 'bundle.js'
   },

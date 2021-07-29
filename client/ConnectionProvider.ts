@@ -1,4 +1,8 @@
-let baseApiUrl: string = "https://petr-acs-roulette-server.azurewebsites.net"; //TODO: load from config
+let baseApiUrl: string | undefined = process.env.CONNECTION_BASE_API_URL;
+
+if (baseApiUrl === undefined) {
+  throw new Error("Base API URL must be defined!");
+}
 let userId: string;
 
 export class ConnectionProvider {
