@@ -17,6 +17,13 @@ let callAgent: CallAgent;
 let userId: string | null = null;
 let iTerminated: boolean = false;
 
+enum CallStatus
+{
+  Disconnected,
+  Waiting,
+  Connected
+}
+
 const callButton = document.getElementById("call-button") as HTMLButtonElement;
 const hangUpButton = document.getElementById(
   "hang-up-button"
@@ -56,8 +63,8 @@ function subscribeToParticipantVideoStreams(
   });
 }
 
-function subscribeToRemoteParticipantInCall(callInstance: Call) {  
-  waitingLabel.style.visibility = 'hidden';
+function subscribeToRemoteParticipantInCall(callInstance: Call) {
+  waitingLabel.style.visibility = "hidden";
   callInstance.on("remoteParticipantsUpdated", (e) => {
     e.added.forEach((p) => {
       subscribeToParticipantVideoStreams(p);
@@ -92,7 +99,7 @@ async function init() {
   });
 
   deviceManager = await callClient.getDeviceManager();
-  callButton.disabled = false;
+  setUI(CallStatus.Disconnected);
 
   callAgent.on("incomingCall", async (e) => {
     const videoDevices = await deviceManager.getCameras();
@@ -100,16 +107,14 @@ async function init() {
     localVideoStream = new LocalVideoStream(videoDeviceInfo);
     localVideoView();
 
-    callButton.disabled = true;
-    hangUpButton.disabled = false;
-    nextButton.disabled = false;
-
     const addedCall = await e.incomingCall.accept({
       videoOptions: { localVideoStreams: [localVideoStream] },
     });
     call = addedCall;
 
     subscribeToRemoteParticipantInCall(addedCall);
+
+    setUI(CallStatus.Connected);
   });
 
   callAgent.on("callsUpdated", (e) => {
@@ -121,20 +126,20 @@ async function init() {
       rendererLocal.dispose();
       //rendererRemote.dispose();
       // toggle button states
-      hangUpButton.disabled = true;
-      nextButton.disabled = true;
-      callButton.disabled = false;
+      setUI(CallStatus.Disconnected);
       console.log("call has been terminated");
       if (iTerminated === false) {
         // call was terminated by the other side
         // Get callee
         let callee = await getNextCallee();
 
-        await callUser(callee);
-
-        hangUpButton.disabled = false;
-        nextButton.disabled = false;
-        callButton.disabled = true;
+        if (callee === null || callee === undefined) {
+          console.log("waiting to be called");
+          setUI(CallStatus.Waiting);
+        } else {
+          await callUser(callee);
+          setUI(CallStatus.Connected);
+        }
       }
     });
   });
@@ -169,14 +174,21 @@ async function remoteVideoView(remoteVideoStream: RemoteVideoStream) {
   remoteVideoElement.appendChild(view.target);
 }
 
+window.addEventListener("beforeunload", async function (e) {
+  delete e["returnValue"];
+  await hangUp();
+});
+
 callButton.addEventListener("click", async () => {
   let callee = await getNextCallee();
 
-  await callUser(callee);
-
-  hangUpButton.disabled = false;
-  nextButton.disabled = false;
-  callButton.disabled = true;
+  if (callee === null || callee === undefined) {
+    console.log("waiting to be called");
+    setUI(CallStatus.Waiting);
+  } else {
+    await callUser(callee);
+    setUI(CallStatus.Connected);
+  }
 });
 
 nextButton.addEventListener("click", async () => {
@@ -185,11 +197,13 @@ nextButton.addEventListener("click", async () => {
   // Get callee
   let callee = await getNextCallee();
 
-  await callUser(callee);
-  
-  hangUpButton.disabled = false;
-  nextButton.disabled = false;
-  callButton.disabled = true;
+  if (callee === null || callee === undefined) {
+    console.log("waiting to be called");
+    setUI(CallStatus.Waiting);
+  } else {
+    await callUser(callee);
+    setUI(CallStatus.Connected);
+  }
 });
 
 hangUpButton.addEventListener("click", async () => {
@@ -197,9 +211,7 @@ hangUpButton.addEventListener("click", async () => {
   await hangUp();
 
   // toggle button states
-  hangUpButton.disabled = true;
-  callButton.disabled = false;
-  nextButton.disabled = true;
+  setUI(CallStatus.Disconnected);
 });
 
 async function getNextCallee(): Promise<string | null | undefined> {
@@ -224,23 +236,18 @@ async function getNextCallee(): Promise<string | null | undefined> {
   return callee;
 }
 
-async function callUser(userToCall: string | null | undefined) {
-  if (userToCall === null || userToCall === undefined) {
-    console.log("waiting to be called");
-    waitingLabel.style.visibility = 'visible';
-  } else {
-    const videoDevices = await deviceManager.getCameras();
-    const videoDeviceInfo = videoDevices[0];
-    localVideoStream = new LocalVideoStream(videoDeviceInfo);
+async function callUser(userToCall: string) {
+  const videoDevices = await deviceManager.getCameras();
+  const videoDeviceInfo = videoDevices[0];
+  localVideoStream = new LocalVideoStream(videoDeviceInfo);
 
-    localVideoView();
-    console.log("callee: " + userToCall);
-    call = callAgent.startCall([{ communicationUserId: userToCall }], {
-      videoOptions: { localVideoStreams: [localVideoStream] },
-    });
+  localVideoView();
+  console.log("callee: " + userToCall);
+  call = callAgent.startCall([{ communicationUserId: userToCall }], {
+    videoOptions: { localVideoStreams: [localVideoStream] },
+  });
 
-    subscribeToRemoteParticipantInCall(call);
-  }
+  subscribeToRemoteParticipantInCall(call);
 }
 
 async function hangUp() {
@@ -248,4 +255,29 @@ async function hangUp() {
 
   // end the current call
   await call.hangUp();
+}
+
+function setUI(status: CallStatus) {
+  switch (status) {
+    case CallStatus.Disconnected:
+      hangUpButton.disabled = true;
+      callButton.disabled = false;
+      nextButton.disabled = true;
+      waitingLabel.style.visibility = "hidden";
+      break;
+
+    case CallStatus.Connected:
+      hangUpButton.disabled = false;
+      callButton.disabled = true;
+      nextButton.disabled = false;
+      waitingLabel.style.visibility = "hidden";
+      break;
+
+    case CallStatus.Waiting:
+      hangUpButton.disabled = false;
+      callButton.disabled = true;
+      nextButton.disabled = true;
+      waitingLabel.style.visibility = "visible";
+      break;
+  }
 }
