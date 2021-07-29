@@ -28,7 +28,6 @@ if (connectionString === undefined) {
 const identityClient = new CommunicationIdentityClient(connectionString);
 let initCounter: number = 0;
 let nextCounter: number = 0;
-let stopCounter: number = 0;
 
 const queue = new PriorityQueue({
   comparator(a: PriorityItem, b: PriorityItem) {
@@ -44,7 +43,6 @@ app.get("/debug", (req, res) => {
     firstItem: fi,
     initCount: initCounter,
     nextCount: nextCounter,
-    stopCount: stopCounter,
   };
 
   res.send(response);
@@ -86,16 +84,6 @@ app.get("/next", async (req, res) => {
     queue.queue({ priority: 2, userId });
   }
   res.send(response);
-});
-
-app.post("/stop", async (req, res) => {
-  stopCounter++;
-  const userId: string = req.header("userId") as string;
-  if (userId === undefined) {
-    res.status(500).send({ error: "The 'userId' header must be set!" });
-    return;
-  }
-  identityClient.deleteUser({ communicationUserId: userId });
 });
 
 // start the Express server

@@ -10,10 +10,11 @@ import {
 } from "@azure/communication-calling";
 import { AzureCommunicationTokenCredential } from "@azure/communication-common";
 import { CallStatus } from "./CallStatus";
-
+import { CountDownTimer } from "./CountDownTimer";
 
 let call: Call;
 let callAgent: CallAgent;
+let baseApiUrl: string = "https://petr-acs-roulette-server.azurewebsites.net"; //TODO: load from config
 
 let timeout: number = 120;
 let userId: string | null = null;
@@ -23,11 +24,20 @@ const callButton = document.getElementById("call-button") as HTMLButtonElement;
 const hangUpButton = document.getElementById(
   "hang-up-button"
 ) as HTMLButtonElement;
-const nextButton = document.getElementById("next-button") as HTMLButtonElement;
+const nextButton = document.getElementById(
+  "next-button"
+) as HTMLButtonElement;
 const waitingLabel = document.getElementById("waiting") as HTMLDivElement;
 
+console.log(nextButton);
+let countdown: CountDownTimer = new CountDownTimer(
+  nextButton,
+  timeout,
+  "NEXT 🎲 >>"
+);
+
 let deviceManager: DeviceManager;
-let localVideoStream: LocalVideoStream;
+//let localVideoStream: LocalVideoStream;
 let rendererLocal: VideoStreamRenderer;
 let rendererRemote: VideoStreamRenderer;
 
@@ -58,7 +68,7 @@ function subscribeToParticipantVideoStreams(
   });
 }
 
-function subscribeToRemoteParticipantInCall(callInstance: Call) {  
+function subscribeToRemoteParticipantInCall(callInstance: Call) {
   callInstance.on("remoteParticipantsUpdated", (e) => {
     e.added.forEach((p) => {
       subscribeToParticipantVideoStreams(p);
@@ -70,9 +80,7 @@ function subscribeToRemoteParticipantInCall(callInstance: Call) {
 }
 
 async function init() {
-  let response = await fetch(
-    "https://petr-acs-roulette-server.azurewebsites.net/init"
-  );
+  let response = await fetch(baseApiUrl + "/init");
   let token = null;
   if (response.ok) {
     // if HTTP-status is 200-299
@@ -98,8 +106,8 @@ async function init() {
   callAgent.on("incomingCall", async (e) => {
     const videoDevices = await deviceManager.getCameras();
     const videoDeviceInfo = videoDevices[0];
-    localVideoStream = new LocalVideoStream(videoDeviceInfo);
-    localVideoView();
+    let localVideoStream = new LocalVideoStream(videoDeviceInfo);
+    localVideoView(localVideoStream);
 
     const addedCall = await e.incomingCall.accept({
       videoOptions: { localVideoStreams: [localVideoStream] },
@@ -124,7 +132,6 @@ async function init() {
       console.log("call has been terminated");
       if (iTerminated === false) {
         // call was terminated by the other side
-        // Get callee
         let callee = await getNextCallee();
 
         if (callee === null || callee === undefined) {
@@ -148,7 +155,7 @@ function removeAllChildNodes(parent: HTMLElement | null) {
   }
 }
 
-async function localVideoView() {
+async function localVideoView(localVideoStream: LocalVideoStream) {
   rendererLocal = new VideoStreamRenderer(localVideoStream);
   const view = await rendererLocal.createView();
   const myVideoElement: HTMLElement = document.getElementById(
@@ -171,15 +178,6 @@ async function remoteVideoView(remoteVideoStream: RemoteVideoStream) {
 window.addEventListener("beforeunload", async function (e) {
   delete e["returnValue"];
   await hangUp();
-
-  const requestHeaders: HeadersInit = new Headers();
-  if (userId != null) {
-    requestHeaders.set("userId", userId);
-  }
-  await fetch("https://petr-acs-roulette-server.azurewebsites.net/stop", {
-    headers: requestHeaders,
-    method: "POST",
-  });
 });
 
 callButton.addEventListener("click", async () => {
@@ -223,10 +221,7 @@ async function getNextCallee(): Promise<string | null | undefined> {
   if (userId != null) {
     requestHeaders.set("userId", userId);
   }
-  let response = await fetch(
-    "https://petr-acs-roulette-server.azurewebsites.net/next",
-    { headers: requestHeaders }
-  );
+  let response = await fetch(baseApiUrl + "/next", { headers: requestHeaders });
   let callee: string | null = null;
   if (response.ok) {
     let json = await response.json();
@@ -242,9 +237,9 @@ async function getNextCallee(): Promise<string | null | undefined> {
 async function callUser(userToCall: string) {
   const videoDevices = await deviceManager.getCameras();
   const videoDeviceInfo = videoDevices[0];
-  localVideoStream = new LocalVideoStream(videoDeviceInfo);
+  let localVideoStream = new LocalVideoStream(videoDeviceInfo);
 
-  localVideoView();
+  localVideoView(localVideoStream);
   console.log("callee: " + userToCall);
   call = callAgent.startCall([{ communicationUserId: userToCall }], {
     videoOptions: { localVideoStreams: [localVideoStream] },
@@ -255,9 +250,10 @@ async function callUser(userToCall: string) {
 
 async function hangUp() {
   iTerminated = true;
-
-  // end the current call
-  await call.hangUp();
+  if (call !== undefined && call !== null) {
+    // end the current call
+    await call.hangUp();
+  }
 }
 
 function setUI(status: CallStatus) {
@@ -267,8 +263,7 @@ function setUI(status: CallStatus) {
       callButton.disabled = false;
       nextButton.disabled = true;
       waitingLabel.style.visibility = "hidden";
-      nextButton.innerHTML = "NEXT 🎲 >>";
-      clearTimeout(timeoutObj);
+      countdown.resetCountdown();
       break;
 
     case CallStatus.Connected:
@@ -276,7 +271,7 @@ function setUI(status: CallStatus) {
       callButton.disabled = true;
       nextButton.disabled = false;
       waitingLabel.style.visibility = "hidden";
-      initCountdown(nextButton, timeout);
+      countdown.startCountdown();
       break;
 
     case CallStatus.Waiting:
@@ -284,33 +279,7 @@ function setUI(status: CallStatus) {
       callButton.disabled = true;
       nextButton.disabled = true;
       waitingLabel.style.visibility = "visible";
-      nextButton.innerHTML = "NEXT 🎲 >>";
-      clearTimeout(timeoutObj);
+      countdown.resetCountdown();
       break;
   }
-}
-
-let timeoutObj: NodeJS.Timeout;
-function initCountdown(element: HTMLButtonElement, seconds: number) {
-  var endTime: number, mins, msLeft, time;
-
-  function twoDigits(n: number) {
-    return n <= 9 ? "0" + n : n;
-  }
-
-  function updateTimer() {
-    msLeft = endTime - +new Date();
-    if (msLeft < 1000) {
-      nextButton.click();
-    } else {
-      time = new Date(msLeft);
-      mins = time.getUTCMinutes();
-      element.innerHTML =
-        "NEXT 🎲 >> " + mins + ":" + twoDigits(time.getUTCSeconds());
-      timeoutObj = setTimeout(updateTimer, time.getUTCMilliseconds() + 500);
-    }
-  }
-
-  endTime = +new Date() + 1000 * seconds + 500;
-  updateTimer();
 }
