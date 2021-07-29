@@ -35,6 +35,8 @@ const queue = new PriorityQueue({
   },
 });
 
+app.use('/', express.static('client'));
+
 // define a route handler for the default home page
 app.get("/debug", (req, res) => {
   const fi = queue.length > 0 ? queue.peek() : null;
