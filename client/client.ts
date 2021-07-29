@@ -11,13 +11,11 @@ import {
 import { AzureCommunicationTokenCredential } from "@azure/communication-common";
 import { CallStatus } from "./CallStatus";
 import { CountDownTimer } from "./CountDownTimer";
+import  {ConnectionProvider} from "./ConnectionProvider"
 
 let call: Call;
 let callAgent: CallAgent;
-let baseApiUrl: string = "https://petr-acs-roulette-server.azurewebsites.net"; //TODO: load from config
 
-let timeout: number = 120;
-let userId: string | null = null;
 let iTerminated: boolean = false;
 
 const callButton = document.getElementById("call-button") as HTMLButtonElement;
@@ -29,15 +27,24 @@ const nextButton = document.getElementById(
 ) as HTMLButtonElement;
 const waitingLabel = document.getElementById("waiting") as HTMLDivElement;
 
+const myVideoElement: HTMLElement = document.getElementById(
+  "myVideo"
+) as HTMLElement;
+
+const remoteVideoElement = document.getElementById(
+  "remoteVideo"
+) as HTMLElement;
+
 console.log(nextButton);
 let countdown: CountDownTimer = new CountDownTimer(
   nextButton,
-  timeout,
+  120,
   "NEXT 🎲 >>"
 );
 
+let connectionProvider:ConnectionProvider = new ConnectionProvider();
+
 let deviceManager: DeviceManager;
-//let localVideoStream: LocalVideoStream;
 let rendererLocal: VideoStreamRenderer;
 let rendererRemote: VideoStreamRenderer;
 
@@ -80,20 +87,7 @@ function subscribeToRemoteParticipantInCall(callInstance: Call) {
 }
 
 async function init() {
-  let response = await fetch(baseApiUrl + "/init");
-  let token = null;
-  if (response.ok) {
-    // if HTTP-status is 200-299
-    // get the response body (the method explained below)
-    let json = await response.json();
-    token = json.token;
-    userId = json.user.communicationUserId;
-    console.log(json);
-    console.log("userId: " + userId);
-  } else {
-    console.log(response.status + ": " + response.statusText);
-  }
-
+  let token = (await connectionProvider.init())?.token;
   const callClient = new CallClient();
   const tokenCredential = new AzureCommunicationTokenCredential(token);
   callAgent = await callClient.createCallAgent(tokenCredential, {
@@ -132,7 +126,7 @@ async function init() {
       console.log("call has been terminated");
       if (iTerminated === false) {
         // call was terminated by the other side
-        let callee = await getNextCallee();
+        let callee = await connectionProvider.getNextCallee();
 
         if (callee === null || callee === undefined) {
           console.log("waiting to be called");
@@ -141,6 +135,10 @@ async function init() {
           await callUser(callee);
           setUI(CallStatus.Connected);
         }
+      }
+      else
+      {
+        iTerminated = false;
       }
     });
   });
@@ -158,9 +156,7 @@ function removeAllChildNodes(parent: HTMLElement | null) {
 async function localVideoView(localVideoStream: LocalVideoStream) {
   rendererLocal = new VideoStreamRenderer(localVideoStream);
   const view = await rendererLocal.createView();
-  const myVideoElement: HTMLElement = document.getElementById(
-    "myVideo"
-  ) as HTMLElement;
+  
   removeAllChildNodes(myVideoElement);
   myVideoElement.appendChild(view.target);
 }
@@ -168,9 +164,7 @@ async function localVideoView(localVideoStream: LocalVideoStream) {
 async function remoteVideoView(remoteVideoStream: RemoteVideoStream) {
   rendererRemote = new VideoStreamRenderer(remoteVideoStream);
   const view = await rendererRemote.createView();
-  const remoteVideoElement = document.getElementById(
-    "remoteVideo"
-  ) as HTMLElement;
+  
   removeAllChildNodes(remoteVideoElement);
   remoteVideoElement.appendChild(view.target);
 }
@@ -181,7 +175,7 @@ window.addEventListener("beforeunload", async function (e) {
 });
 
 callButton.addEventListener("click", async () => {
-  let callee = await getNextCallee();
+  let callee = await connectionProvider.getNextCallee();
 
   if (callee === null || callee === undefined) {
     console.log("waiting to be called");
@@ -196,7 +190,7 @@ nextButton.addEventListener("click", async () => {
   await hangUp();
 
   // Get callee
-  let callee = await getNextCallee();
+  let callee = await connectionProvider.getNextCallee();
 
   if (callee === null || callee === undefined) {
     console.log("waiting to be called");
@@ -214,25 +208,6 @@ hangUpButton.addEventListener("click", async () => {
   // toggle button states
   setUI(CallStatus.Disconnected);
 });
-
-async function getNextCallee(): Promise<string | null | undefined> {
-  // Get callee
-  const requestHeaders: HeadersInit = new Headers();
-  if (userId != null) {
-    requestHeaders.set("userId", userId);
-  }
-  let response = await fetch(baseApiUrl + "/next", { headers: requestHeaders });
-  let callee: string | null = null;
-  if (response.ok) {
-    let json = await response.json();
-    console.log("getNextCallee:");
-    console.log(json);
-    callee = json.callee;
-  } else {
-    console.log(response.status + ": " + response.statusText);
-  }
-  return callee;
-}
 
 async function callUser(userToCall: string) {
   const videoDevices = await deviceManager.getCameras();
