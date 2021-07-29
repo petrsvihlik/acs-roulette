@@ -1,8 +1,6 @@
 import express from "express";
 import PriorityQueue from "ts-priority-queue";
-import {
-  CommunicationIdentityClient,
-} from "@azure/communication-identity";
+import { CommunicationIdentityClient } from "@azure/communication-identity";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -28,6 +26,10 @@ if (connectionString === undefined) {
 }
 
 const identityClient = new CommunicationIdentityClient(connectionString);
+let initCounter: number = 0;
+let nextCounter: number = 0;
+let stopCounter: number = 0;
+
 const queue = new PriorityQueue({
   comparator(a: PriorityItem, b: PriorityItem) {
     return b.priority - a.priority;
@@ -35,14 +37,21 @@ const queue = new PriorityQueue({
 });
 
 // define a route handler for the default home page
-app.get("/", (req, res) => {
+app.get("/debug", (req, res) => {
   const fi = queue.length > 0 ? queue.peek() : null;
-  const response = { queueLength: queue.length, firstItem: fi };
+  const response = {
+    queueLength: queue.length,
+    firstItem: fi,
+    initCount: initCounter,
+    nextCount: nextCounter,
+    stopCount: stopCounter,
+  };
 
   res.send(response);
 });
 
 app.get("/init", async (req, res) => {
+  initCounter++;
   const identityTokenResponse = await identityClient.createUserAndToken([
     "voip",
   ]);
@@ -50,8 +59,9 @@ app.get("/init", async (req, res) => {
 });
 
 app.get("/next", async (req, res) => {
-  const userId: string = req.header('userId') as string;
-  //const priority: number = req.headers.priority as number;
+  nextCounter++;
+  const userId: string = req.header("userId") as string;
+  // const priority: number = req.headers.priority as number;
 
   if (userId === undefined) {
     res.status(500).send({ error: "The 'userId' header must be set!" });
@@ -73,13 +83,14 @@ app.get("/next", async (req, res) => {
       };
     }
   } else {
-    queue.queue({ priority: 2, userId: userId });
+    queue.queue({ priority: 2, userId });
   }
   res.send(response);
 });
 
 app.post("/stop", async (req, res) => {
-  const userId: string = req.header('userId') as string;
+  stopCounter++;
+  const userId: string = req.header("userId") as string;
   if (userId === undefined) {
     res.status(500).send({ error: "The 'userId' header must be set!" });
     return;
