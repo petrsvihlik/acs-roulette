@@ -1,9 +1,8 @@
 # ACS Roulette
+
 Video-chat website that pairs random users in 1-on-1 sessions based on Azure Communication Service.
 
-
 ## Run the code
-
 
 ### Prerequisites
 
@@ -18,7 +17,6 @@ Video-chat website that pairs random users in 1-on-1 sessions based on Azure Com
 - `npm i`
 - `npm run debug`
 - `ngrok http 8080 -host-header="localhost:8080"`
-
 
 ### Client
 
