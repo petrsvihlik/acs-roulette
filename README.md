@@ -14,7 +14,7 @@ Video-chat website that pairs random users in 1-on-1 sessions based on Azure Com
 
 ### Server
 
-- create a .env file with COMMUNICATION_SERVICES_CONNECTION_STRING="<acsResourceConnectionString>"
+- create a .env file with `COMMUNICATION_SERVICES_CONNECTION_STRING="<acsResourceConnectionString>"`
 - `npm i`
 - `npm run debug`
 - `ngrok http 8080 -host-header="localhost:8080"`
@@ -23,6 +23,6 @@ Video-chat website that pairs random users in 1-on-1 sessions based on Azure Com
 ### Client
 
 - `cd client`
-- create a .env file with CONNECTION_BASE_API_URL="https://<acsRouletteServerBaseUrl>"
+- create a .env file with `CONNECTION_BASE_API_URL="https://<acsRouletteServerBaseUrl>"`
 - `npm i`
 - `npm run start`
