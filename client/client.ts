@@ -3,6 +3,7 @@ import { CallStatus } from "./CallStatus";
 import { VideoDirection } from "./VideoDirection";
 import { CountDownTimer } from "./CountDownTimer";
 import { CallManager } from "./CallManager";
+import { BrowserInfo, detect } from "detect-browser";
 
 const callButton = document.getElementById("call-button") as HTMLButtonElement;
 const hangUpButton = document.getElementById(
@@ -103,4 +104,21 @@ function setUI(status: CallStatus) {
   }
 }
 
-callManager.init();
+const browser = detect();
+console.log(browser?.name);
+switch (browser && browser.name) {
+  case "chrome":
+    callManager.init();
+    break;
+
+  case "edge-chromium":
+    alert(
+      "There are some known issues in Edge. In case of problems, use Chrome."
+    );
+    callManager.init();
+    break;
+
+  default:
+    alert("The app currently fully supports only Chrome.");
+    break;
+}

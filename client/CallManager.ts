@@ -96,6 +96,20 @@ export class CallManager {
         this.remoteVideoView(remoteVideoStream);
       } else {
         console.log("disposing handleVideoStream");
+
+        // error
+        // sdk.bundle.js:4 Uncaught (in promise) CallingCommunicationError: Failed to start stream, disposing stream
+        // at RemoteStreamRenderer.dispose (sdk.bundle.js:143)
+        // at RemoteStreamRenderer.i.value (sdk.bundle.js:4)
+        // at VideoStreamRendererViewImpl.attemptToDisposeStreamRenderer (sdk.bundle.js:143)
+        // at VideoStreamRendererViewImpl.dispose (sdk.bundle.js:143)
+        // at VideoStreamRendererViewImpl.i.value (sdk.bundle.js:4)
+        // at VideoStreamRenderer._attemptToDisposeView (sdk.bundle.js:143)
+        // at Map.forEach (<anonymous>)
+        // at VideoStreamRenderer.dispose (sdk.bundle.js:143)
+        // at VideoStreamRenderer.i.value (sdk.bundle.js:4)
+        // at t.CallManager.<anonymous> (CallManager.ts:99)
+
         rendererRemote.dispose();
       }
     });
