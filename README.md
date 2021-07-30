@@ -1,3 +1,5 @@
+[![Live Demo](https://img.shields.io/badge/live-demo-brightgreen.svg)](https://petr-acs-roulette-server.azurewebsites.net/)
+
 # ACS Roulette
 
 Video-chat website that pairs random users in 1-on-1 sessions based on Azure Communication Services.
@@ -6,7 +8,8 @@ Video-chat website that pairs random users in 1-on-1 sessions based on Azure Com
 ![Calling myself](https://user-images.githubusercontent.com/9810625/127651732-9441052f-7cbf-4b49-858c-5bfd375fec09.png)
 *This is how I connected myself to my random self.*
 
-## Run the code
+## Live demo
+
 
 ### Prerequisites
 
